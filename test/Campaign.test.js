@@ -140,7 +140,7 @@ contract('Campaign', accounts => {
       await campaignContract.donate([60, 40], {
         from: donor,
         value: 5000000000000
-      })
+      });
       const numberOfDonations = await campaignContract.donationsOf(donor);
       assert.equal(numberOfDonations, 1, "donations of donor should have been one")
     });

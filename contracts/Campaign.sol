@@ -9,6 +9,7 @@ contract Campaign {
 
     struct Donation {
         bool donated;
+        uint256 timestamp;
     }
 
     modifier is_organizer() {
@@ -78,11 +79,8 @@ contract Campaign {
             status == Status.ONGOING,
             "Can't accept donations. Organizers must fund the Campaign first"
         );
-        for (uint256 i = 0; i < beneficiaries.length; i++) {
-            beneficiariesAmounts[beneficiaries[i]] +=
-                (msg.value * distribution[i]) /
-                100;
-        }
+        require(now < deadline, "Cannot initialize after deadline");
+        distributeFunds(distribution);
     }
 
     function initialize(uint256[] calldata distribution)
@@ -96,16 +94,24 @@ contract Campaign {
             organizersFundingStatus[msg.sender].hasFunded == false,
             "Initial funding already sent"
         );
+        require(now < deadline, "Cannot initialize after deadline");
         organizersFundingStatus[msg.sender].hasFunded = true;
         initialFundsCounter++;
         if (initialFundsCounter == organizers.length) {
             status = Status.ONGOING;
         }
+        distributeFunds(distribution);
+    }
+
+    function distributeFunds(uint256[] memory distribution) private {
         for (uint256 i = 0; i < beneficiaries.length; i++) {
             beneficiariesAmounts[beneficiaries[i]] +=
                 (msg.value * distribution[i]) /
                 100;
         }
+        donorsHistory[msg.sender].push(
+            Donation({donated: true, timestamp: now})
+        );
     }
 
     // only organizers can call this function?
