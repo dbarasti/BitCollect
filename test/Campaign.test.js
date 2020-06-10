@@ -3,7 +3,7 @@ const truffleAssert = require('truffle-assertions');
 
 
 let campaignContract;
-const campaignDeadline = Date.now();
+const campaignDeadline = 1591862999; //~11 june 2020
 
 contract('Campaign', accounts => {
   const organizers = accounts.slice(0, 3);

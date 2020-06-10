@@ -21,12 +21,20 @@ contract Campaign {
         _;
     }
 
-    modifier sum_to_100(uint256[] memory distribution) {
+    modifier sums_to_100(uint256[] memory distribution) {
         uint256 sum = 0;
         for (uint256 i = 0; i < distribution.length; i++) {
             sum += distribution[i];
         }
         require(sum == 100, "Sum of distributions should be 100");
+        _;
+    }
+
+    modifier not_expired() {
+        if (now > deadline) {
+            status = Status.CONCLUDED;
+        }
+        require(now < deadline, "Campaign has expired");
         _;
     }
 
@@ -69,17 +77,16 @@ contract Campaign {
         return beneficiaries;
     }
 
-    // todo check that sum of distribution is 100
     function donate(uint256[] calldata distribution)
         external
         payable
-        sum_to_100(distribution)
+        not_expired()
+        sums_to_100(distribution)
     {
         require(
             status == Status.ONGOING,
             "Can't accept donations. Organizers must fund the Campaign first"
         );
-        require(now < deadline, "Cannot initialize after deadline");
         distributeFunds(distribution);
     }
 
@@ -87,14 +94,14 @@ contract Campaign {
         external
         payable
         is_organizer()
-        sum_to_100(distribution)
+        not_expired()
+        sums_to_100(distribution)
     {
         require(msg.value > 0, "Initial funding must be > 0");
         require(
             organizersFundingStatus[msg.sender].hasFunded == false,
             "Initial funding already sent"
         );
-        require(now < deadline, "Cannot initialize after deadline");
         organizersFundingStatus[msg.sender].hasFunded = true;
         initialFundsCounter++;
         if (initialFundsCounter == organizers.length) {
