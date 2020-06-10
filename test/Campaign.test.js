@@ -3,7 +3,11 @@ const truffleAssert = require('truffle-assertions');
 
 
 let campaignContract;
-const campaignDeadline = 1591862999; //~11 june 2020
+const campaignDeadline = 2538374999; //~2050
+
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 contract('Campaign', accounts => {
   const organizers = accounts.slice(0, 3);
@@ -92,7 +96,7 @@ contract('Campaign', accounts => {
           value: 500000000
         });
       });
-      const campaignStatus = await campaignContract.status();
+      const campaignStatus = await campaignContract.getStatus();
       assert.equal(campaignStatus, 1, "status is not set to ONGOING (val=1)")
     });
   })
@@ -144,5 +148,134 @@ contract('Campaign', accounts => {
       const numberOfDonations = await campaignContract.donationsOf(donor);
       assert.equal(numberOfDonations, 1, "donations of donor should have been one")
     });
+
+    it('should refuse initializations after deadline', async () => {
+      pastTimestamp = 1591690199;
+      campaignContract = await Campaign.new(organizers, beneficiaries, pastTimestamp, {
+        from: accounts[0]
+      });
+
+      const organizerQuota = 500000000;
+      await truffleAssert.reverts(campaignContract.initialize([50, 50], {
+        from: organizers[0],
+        value: organizerQuota
+      }), "Campaign has expired");
+    })
+
+    it('should refuse donation after deadline', async () => {
+      nearTimestamp = Math.round(Date.now() / 1000) + 1;
+      campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
+        from: accounts[0]
+      });
+      const organizerQuota = 500000000;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+      await sleep(2000);
+      await truffleAssert.reverts(campaignContract.donate([60, 40], {
+        from: donor,
+        value: 5000000000000
+      }), "Campaign has expired");
+    })
+  });
+
+  describe('test withdraw', () => {
+    it('should allow a beneficiary to withdraw its amount', async () => {
+      nearTimestamp = Math.round(Date.now() / 1000) + 2;
+      campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
+        from: accounts[0]
+      });
+
+      const organizerQuota = 500000000;
+      let totalQuota = 0;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+        totalQuota += organizerQuota;
+      });
+
+      await campaignContract.donate([60, 40], {
+        from: donor,
+        value: 5000000000000
+      });
+
+      await sleep(2000);
+
+      const contractBalanceBefore = await web3.eth.getBalance(campaignContract.address);
+      await campaignContract.withdraw({
+        from: beneficiaries[0]
+      });
+      const contractBalanceAfter = await web3.eth.getBalance(campaignContract.address);
+      const expected = Math.round(parseFloat(contractBalanceAfter) + parseFloat(totalQuota) / 2 + 3000000000000);
+      assert.equal(expected, contractBalanceBefore, "withdraw is not as expected")
+
+      await truffleAssert.reverts(campaignContract.withdraw({
+        from: beneficiaries[0]
+      }), "Error. No amount available or beneficiary non-existing");
+    });
+
+    it('should refuse withdraw if campaign is not CONCLUDED', async () => {
+      nearTimestamp = Math.round(Date.now() / 1000) + 2;
+      campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
+        from: accounts[0]
+      });
+
+      const organizerQuota = 500000000;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+
+      await campaignContract.donate([60, 40], {
+        from: donor,
+        value: 5000000000000
+      });
+
+      await truffleAssert.reverts(campaignContract.withdraw({
+        from: beneficiaries[0]
+      }), "Operation not permitted. Campaign is not concluded");
+    });
+  });
+
+  describe('test deactivation', () => {
+    it('should allow deactivation after withdraw is completed', async () => {
+      nearTimestamp = Math.round(Date.now() / 1000) + 2;
+      campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
+        from: accounts[0]
+      });
+
+      const organizerQuota = 500000000;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+      await sleep(2500);
+      await campaignContract.withdraw({
+        from: beneficiaries[0]
+      });
+
+      await truffleAssert.reverts(campaignContract.deactivate({
+        from: organizers[0]
+      }), "Operation not permitted. Beneficiaries didn't withdrew");
+
+      await campaignContract.withdraw({
+        from: beneficiaries[1]
+      });
+
+      await campaignContract.deactivate({
+        from: organizers[0]
+      })
+      assert.equal(await campaignContract.getStatus(), 4, "status is not set to DISABLED (val=4)")
+    })
+
   });
 });

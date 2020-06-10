@@ -7,9 +7,11 @@ contract Campaign {
         bool hasFunded;
     }
 
+    // TODO remove donated field if useless
     struct Donation {
         bool donated;
         uint256 timestamp;
+        uint256 amount;
     }
 
     modifier is_organizer() {
@@ -30,16 +32,31 @@ contract Campaign {
         _;
     }
 
-    modifier not_expired() {
-        if (now > deadline) {
+    modifier not_concluded() {
+        if (now >= deadline) {
             status = Status.CONCLUDED;
         }
         require(now < deadline, "Campaign has expired");
         _;
     }
 
-    enum Status {INITIALIZED, ONGOING, CONCLUDED, DISABLED}
-    Status public status;
+    modifier concluded() {
+        if (now >= deadline) {
+            status = Status.CONCLUDED;
+        }
+        require(
+            status == Status.CONCLUDED,
+            "Operation not permitted. Campaign is not concluded"
+        );
+        _;
+    }
+
+    event new_donation(address, uint256);
+    event beneficiary_withdrew(uint256);
+    event contract_deactivated();
+    event new_campaign();
+    enum Status {INITIALIZED, ONGOING, CONCLUDED, EMPTY, DISABLED}
+    Status private status;
     address[] public organizers;
     address[] public beneficiaries;
     uint256 public deadline;
@@ -47,6 +64,7 @@ contract Campaign {
     mapping(address => uint256) private beneficiariesAmounts;
     mapping(address => Donation[]) private donorsHistory;
     uint256 initialFundsCounter;
+    uint256 actualBeneficiariesCount;
 
     constructor(
         address[] memory _organizers,
@@ -58,6 +76,7 @@ contract Campaign {
         deadline = _deadline;
         status = Status.INITIALIZED;
         updateOrganizersState();
+        emit new_campaign();
     }
 
     function updateOrganizersState() private {
@@ -77,10 +96,14 @@ contract Campaign {
         return beneficiaries;
     }
 
+    function getStatus() public view returns (Status) {
+        return status;
+    }
+
     function donate(uint256[] calldata distribution)
         external
         payable
-        not_expired()
+        not_concluded()
         sums_to_100(distribution)
     {
         require(
@@ -88,13 +111,14 @@ contract Campaign {
             "Can't accept donations. Organizers must fund the Campaign first"
         );
         distributeFunds(distribution);
+        emit new_donation(msg.sender, msg.value);
     }
 
     function initialize(uint256[] calldata distribution)
         external
         payable
         is_organizer()
-        not_expired()
+        not_concluded()
         sums_to_100(distribution)
     {
         require(msg.value > 0, "Initial funding must be > 0");
@@ -112,12 +136,16 @@ contract Campaign {
 
     function distributeFunds(uint256[] memory distribution) private {
         for (uint256 i = 0; i < beneficiaries.length; i++) {
+            uint256 prevAmount = beneficiariesAmounts[beneficiaries[i]];
             beneficiariesAmounts[beneficiaries[i]] +=
                 (msg.value * distribution[i]) /
                 100;
+            if (prevAmount == 0 && beneficiariesAmounts[beneficiaries[i]] > 0) {
+                actualBeneficiariesCount++;
+            }
         }
         donorsHistory[msg.sender].push(
-            Donation({donated: true, timestamp: now})
+            Donation({donated: true, timestamp: now, amount: msg.value})
         );
     }
 
@@ -136,5 +164,31 @@ contract Campaign {
 
     function donationsOf(address donor) public view returns (uint256) {
         return donorsHistory[donor].length;
+    }
+
+    function withdraw() public concluded() returns (uint256) {
+        uint256 amount = beneficiariesAmounts[msg.sender];
+        require(
+            amount > 0,
+            "Error. No amount available or beneficiary non-existing"
+        );
+        beneficiariesAmounts[msg.sender] = 0;
+        actualBeneficiariesCount--;
+        if (actualBeneficiariesCount == 0) {
+            status = Status.EMPTY;
+        }
+        (bool success, ) = msg.sender.call.value(amount)("");
+        require(success == true, "Error while withdrawing");
+        emit beneficiary_withdrew(amount);
+        return amount;
+    }
+
+    function deactivate() public {
+        require(
+            status == Status.EMPTY,
+            "Operation not permitted. Beneficiaries didn't withdrew"
+        );
+        status = Status.DISABLED;
+        emit contract_deactivated();
     }
 }
