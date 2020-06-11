@@ -184,6 +184,9 @@ contract Campaign {
     }
 
     function deactivate() public {
+        if (actualBeneficiariesCount == 0) {
+            status = Status.EMPTY;
+        }
         require(
             status == Status.EMPTY,
             "Operation not permitted. Beneficiaries didn't withdrew"

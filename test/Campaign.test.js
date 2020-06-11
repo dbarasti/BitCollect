@@ -14,7 +14,6 @@ contract('Campaign', accounts => {
   const beneficiaries = accounts.slice(3, 5);
   const donor = accounts[5];
 
-  //Is it ok to recreate a contract for each test?
   beforeEach(async () => {
     campaignContract = await Campaign.new(organizers, beneficiaries, campaignDeadline, {
       from: accounts[0]
@@ -163,7 +162,7 @@ contract('Campaign', accounts => {
     })
 
     it('should refuse donation after deadline', async () => {
-      nearTimestamp = Math.round(Date.now() / 1000) + 1;
+      nearTimestamp = Math.round(Date.now() / 1000) + 1; //one second from now
       campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
         from: accounts[0]
       });
@@ -214,6 +213,7 @@ contract('Campaign', accounts => {
       const expected = Math.round(parseFloat(contractBalanceAfter) + parseFloat(totalQuota) / 2 + 3000000000000);
       assert.equal(expected, contractBalanceBefore, "withdraw is not as expected")
 
+      //try to withdraw again
       await truffleAssert.reverts(campaignContract.withdraw({
         from: beneficiaries[0]
       }), "Error. No amount available or beneficiary non-existing");
@@ -238,6 +238,7 @@ contract('Campaign', accounts => {
         value: 5000000000000
       });
 
+      //campaign hasn't expired yet
       await truffleAssert.reverts(campaignContract.withdraw({
         from: beneficiaries[0]
       }), "Operation not permitted. Campaign is not concluded");
@@ -265,7 +266,7 @@ contract('Campaign', accounts => {
 
       await truffleAssert.reverts(campaignContract.deactivate({
         from: organizers[0]
-      }), "Operation not permitted. Beneficiaries didn't withdrew");
+      }), "Operation not permitted. Beneficiaries didn't withdraw");
 
       await campaignContract.withdraw({
         from: beneficiaries[1]
@@ -276,6 +277,11 @@ contract('Campaign', accounts => {
       })
       assert.equal(await campaignContract.getStatus(), 4, "status is not set to DISABLED (val=4)")
     })
+  });
 
+  describe('test rewards', () => {
+    it('should allow contract creator to specify rewards', async () => {
+
+    })
   });
 });
