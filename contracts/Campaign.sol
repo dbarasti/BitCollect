@@ -67,13 +67,17 @@ contract Campaign {
     mapping(address => Donation[]) private donorsHistory;
     mapping(address => string[]) private donorsRewards;
     uint256 initialFundsCounter;
-    uint256 actualBeneficiariesCount;
+    uint256 donationsBalance;
 
     constructor(
         address[] memory _organizers,
         address[] memory _beneficiaries,
         uint256 _deadline
     ) public {
+        require(
+            _organizers.length > 0 && _beneficiaries.length > 0,
+            "Cannot create contract, organizers and/or beneficiaries are empty"
+        );
         organizers = _organizers;
         beneficiaries = _beneficiaries;
         deadline = _deadline;
@@ -141,23 +145,26 @@ contract Campaign {
         distributeFunds(distribution);
     }
 
-    // TODO handle change
     function distributeFunds(uint256[] memory distribution) private {
+        donationsBalance += msg.value;
+        uint256 distributed = 0;
+        uint256 change;
         for (uint256 i = 0; i < beneficiaries.length; i++) {
-            uint256 prevAmount = beneficiariesAmounts[beneficiaries[i]];
             beneficiariesAmounts[beneficiaries[i]] +=
                 (msg.value * distribution[i]) /
                 100;
-            if (prevAmount == 0 && beneficiariesAmounts[beneficiaries[i]] > 0) {
-                actualBeneficiariesCount++;
-            }
+            distributed += (msg.value * distribution[i]) / 100;
+        }
+        change = msg.value - distributed;
+        //change (if present) is given to the first beneficiary (just for simplicity)
+        if (change > 0) {
+            beneficiariesAmounts[beneficiaries[0]] += change;
         }
         donorsHistory[msg.sender].push(
             Donation({timestamp: now, amount: msg.value})
         );
     }
 
-    // only organizers can call this function?
     function hasFunded() public view is_organizer() returns (bool) {
         return organizersFundingStatus[msg.sender].hasFunded;
     }
@@ -174,25 +181,25 @@ contract Campaign {
         return donorsHistory[donor].length;
     }
 
-    function withdraw() public concluded() returns (uint256) {
+    function withdraw() public concluded() {
         uint256 amount = beneficiariesAmounts[msg.sender];
         require(
             amount > 0,
             "Error. No amount available or beneficiary non-existing"
         );
+        //todo check underflow
+        donationsBalance -= beneficiariesAmounts[msg.sender];
         beneficiariesAmounts[msg.sender] = 0;
-        actualBeneficiariesCount--;
-        if (actualBeneficiariesCount == 0) {
+        if (donationsBalance == 0) {
             status = Status.EMPTY;
         }
         (bool success, ) = msg.sender.call.value(amount)("");
         require(success == true, "Error while withdrawing");
         emit beneficiary_withdrew(amount);
-        return amount;
     }
 
     function deactivate() public {
-        if (status == Status.CONCLUDED && actualBeneficiariesCount == 0) {
+        if (status == Status.CONCLUDED && donationsBalance == 0) {
             status = Status.EMPTY;
         }
         require(
