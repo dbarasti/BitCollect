@@ -7,9 +7,7 @@ contract Campaign {
         bool hasFunded;
     }
 
-    // TODO remove donated field if useless
     struct Donation {
-        bool donated;
         uint256 timestamp;
         uint256 amount;
     }
@@ -155,7 +153,7 @@ contract Campaign {
             }
         }
         donorsHistory[msg.sender].push(
-            Donation({donated: true, timestamp: now, amount: msg.value})
+            Donation({timestamp: now, amount: msg.value})
         );
     }
 
