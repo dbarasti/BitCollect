@@ -1,5 +1,5 @@
 pragma solidity 0.5.16;
-
+pragma experimental ABIEncoderV2;
 
 contract Campaign {
     struct Organizer {
@@ -51,18 +51,23 @@ contract Campaign {
         _;
     }
 
+    event new_campaign();
+    event campaign_initialized();
     event new_donation(address, uint256);
     event beneficiary_withdrew(uint256);
     event contract_deactivated();
-    event new_campaign();
+    event reward_set();
     enum Status {INITIALIZED, ONGOING, CONCLUDED, EMPTY, DISABLED}
     Status private status;
     address[] public organizers;
     address[] public beneficiaries;
+    uint256[] private rewardAmounts;
+    string[] private rewardPrizes;
     uint256 public deadline;
     mapping(address => Organizer) private organizersFundingStatus;
     mapping(address => uint256) private beneficiariesAmounts;
     mapping(address => Donation[]) private donorsHistory;
+    mapping(address => string[]) private donorsRewards;
     uint256 initialFundsCounter;
     uint256 actualBeneficiariesCount;
 
@@ -111,6 +116,9 @@ contract Campaign {
             "Can't accept donations. Organizers must fund the Campaign first"
         );
         distributeFunds(distribution);
+        if (rewardAmounts.length > 0) {
+            checkForReward();
+        }
         emit new_donation(msg.sender, msg.value);
     }
 
@@ -129,11 +137,13 @@ contract Campaign {
         organizersFundingStatus[msg.sender].hasFunded = true;
         initialFundsCounter++;
         if (initialFundsCounter == organizers.length) {
+            emit campaign_initialized();
             status = Status.ONGOING;
         }
         distributeFunds(distribution);
     }
 
+    // TODO handle change
     function distributeFunds(uint256[] memory distribution) private {
         for (uint256 i = 0; i < beneficiaries.length; i++) {
             uint256 prevAmount = beneficiariesAmounts[beneficiaries[i]];
@@ -189,9 +199,39 @@ contract Campaign {
         }
         require(
             status == Status.EMPTY,
-            "Operation not permitted. Beneficiaries didn't withdrew"
+            "Operation not permitted. Beneficiaries didn't withdraw"
         );
         status = Status.DISABLED;
         emit contract_deactivated();
+    }
+
+    function setRewards(uint256[] memory _amounts, string[] memory _prizes)
+        public
+    {
+        require(
+            _amounts.length == _prizes.length,
+            "Rewards not set. Parameter sizes do not match"
+        );
+        rewardAmounts = _amounts;
+        rewardPrizes = _prizes;
+        emit reward_set();
+    }
+
+    function claimRewards() public view returns (string[] memory) {
+        require(
+            donorsRewards[msg.sender].length > 0,
+            "Cannot claim rewards. None are present"
+        );
+        return donorsRewards[msg.sender];
+    }
+
+    function checkForReward() private {
+        for (uint256 i = 0; i < rewardAmounts.length; i++) {
+            if (msg.value >= rewardAmounts[i]) {
+                donorsRewards[msg.sender].push(rewardPrizes[i]);
+            } else {
+                break; // assume sorted rewardAmounts list
+            }
+        }
     }
 }

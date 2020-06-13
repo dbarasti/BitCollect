@@ -1,5 +1,6 @@
 const Campaign = artifacts.require('./Campaign');
 const truffleAssert = require('truffle-assertions');
+// require("./utils.js");
 
 
 let campaignContract;
@@ -173,7 +174,7 @@ contract('Campaign', accounts => {
           value: organizerQuota
         });
       });
-      await sleep(2000);
+      await sleep(2500);
       await truffleAssert.reverts(campaignContract.donate([60, 40], {
         from: donor,
         value: 5000000000000
@@ -247,7 +248,7 @@ contract('Campaign', accounts => {
 
   describe('test deactivation', () => {
     it('should allow deactivation after withdraw is completed', async () => {
-      nearTimestamp = Math.round(Date.now() / 1000) + 2;
+      nearTimestamp = Math.round(Date.now() / 1000) + 1;
       campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
         from: accounts[0]
       });
@@ -259,7 +260,7 @@ contract('Campaign', accounts => {
           value: organizerQuota
         });
       });
-      await sleep(2500);
+      await sleep(1500);
       await campaignContract.withdraw({
         from: beneficiaries[0]
       });
@@ -280,8 +281,66 @@ contract('Campaign', accounts => {
   });
 
   describe('test rewards', () => {
-    it('should allow contract creator to specify rewards', async () => {
+    it('should allow campaign organizers to specify rewards', async () => {
+      amounts = [1000000000000, 1000000000000000, 5000000000000000];
+      rewards = ["ABC123", "DEF123", "GHI123"];
+      const res = await campaignContract.setRewards(amounts, rewards);
+      truffleAssert.eventEmitted(res, 'reward_set');
+    })
 
+    it('should refuse to accept different-sized parameters', async () => {
+      amounts = [1000000000000, 1000000000000000, 5000000000000000];
+      rewards = ["ABC123", "DEF123"];
+      await truffleAssert.reverts(campaignContract.setRewards(amounts, rewards, {
+        from: organizers[0]
+      }), "Rewards not set. Parameter sizes do not match");
+    });
+
+    it('should refuse to return rewards if donation is not large enough', async () => {
+      amounts = [1000000000000, 1000000000000000, 5000000000000000];
+      let rewards = ["ABC123", "DEF123", "GHI123"];
+      await campaignContract.setRewards(amounts, rewards);
+
+      const organizerQuota = 500000000;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+
+      await campaignContract.donate([10, 90], {
+        from: donor,
+        value: 1000000
+      });
+
+      await truffleAssert.reverts(campaignContract.claimRewards({
+        from: donor
+      }), "Cannot claim rewards. None are present");
+    })
+
+    it('should return rewards after a donation large enough', async () => {
+      amounts = [1000000000000, 1000000000000000, 5000000000000000];
+      let rewards = ["ABC123", "DEF123", "GHI123"];
+      await campaignContract.setRewards(amounts, rewards);
+
+      const organizerQuota = 500000000;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+
+      await campaignContract.donate([10, 90], {
+        from: donor,
+        value: 1000000000000000
+      });
+
+      let obtainedRewards = await campaignContract.claimRewards({
+        from: donor
+      });
+      assert(obtainedRewards.equals(['ABC123', 'DEF123']), "unexpected rewards");
     })
   });
 });
