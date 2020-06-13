@@ -192,7 +192,7 @@ contract Campaign {
     }
 
     function deactivate() public {
-        if (actualBeneficiariesCount == 0) {
+        if (status == Status.CONCLUDED && actualBeneficiariesCount == 0) {
             status = Status.EMPTY;
         }
         require(
