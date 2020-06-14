@@ -1,6 +1,6 @@
 const Campaign = artifacts.require('./Campaign');
 const truffleAssert = require('truffle-assertions');
-// require("./utils.js");
+require("./utils.js");
 
 
 let campaignContract;

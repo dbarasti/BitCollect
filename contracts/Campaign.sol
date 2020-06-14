@@ -60,6 +60,8 @@ contract Campaign {
     event beneficiary_withdrew(uint256);
     event contract_deactivated();
     event reward_set();
+    event milestone_set();
+    event milestone_reached(uint256);
     enum Status {INITIALIZED, ONGOING, CONCLUDED, EMPTY, DISABLED}
     Status private status;
     address[] public organizers;
@@ -258,6 +260,7 @@ contract Campaign {
         for (uint256 i = 0; i < _milestones.length; i++) {
             milestones.push(Milestone({reached: false, goal: _milestones[i]}));
         }
+        emit milestone_set();
     }
 
     function checkMilestone() private {
@@ -273,7 +276,9 @@ contract Campaign {
                 milestones[i].reached = true;
                 // extend deadline by an hour
                 deadline += 3600;
-                // TODO MIOwithdraw from a third-party smart contract
+                // TODO withdraw from a third-party smart contract
+
+                emit milestone_reached(milestones[i].goal);
             }
             if (donationsBalance < milestones[i].goal) {
                 break; // assume sorted milestones list
