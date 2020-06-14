@@ -284,8 +284,18 @@ contract('Campaign', accounts => {
     it('should allow campaign organizers to specify rewards', async () => {
       amounts = [1000000000000, 1000000000000000, 5000000000000000];
       rewards = ["ABC123", "DEF123", "GHI123"];
-      const res = await campaignContract.setRewards(amounts, rewards);
+      const res = await campaignContract.setRewards(amounts, rewards, {
+        from: organizers[0]
+      });
       truffleAssert.eventEmitted(res, 'reward_set');
+    })
+
+    it('should refuse to non-organizers to specify rewards', async () => {
+      amounts = [1000000000000, 1000000000000000, 5000000000000000];
+      rewards = ["ABC123", "DEF123", "GHI123"];
+      await truffleAssert.reverts(campaignContract.setRewards(amounts, rewards, {
+        from: donor
+      }), 'Operation not allowed by non-organizer');
     })
 
     it('should refuse to accept different-sized parameters', async () => {
@@ -341,6 +351,103 @@ contract('Campaign', accounts => {
         from: donor
       });
       assert(obtainedRewards.equals(['ABC123', 'DEF123']), "unexpected rewards");
+    })
+  });
+
+  describe('test milestones', () => {
+    it('should allow an organizer to specify milestones', async () => {
+      const milestones = [100000000, 500000000, 10000000000000];
+      await campaignContract.setMilestones(milestones, {
+        from: organizers[0]
+      })
+    })
+
+    it('should disallow non-organizers to specify milestones', async () => {
+      const milestones = [100000000, 500000000, 10000000000000];
+      await truffleAssert.reverts(campaignContract.setMilestones(milestones, {
+        from: donor
+      }), "Operation not allowed by non-organizer");
+    })
+
+    /*
+    Every time the campaign reaches a milestone
+    the deadline is prolonged, and the smart contract is
+    able to withdraw from a third-party smart contract an
+    amount as a reward for its success.
+    */
+    it('should extend the deadline after reaching a milestone', async () => {
+      const milestones = [100000000, 500000000, 10000000000000];
+      await campaignContract.setMilestones(milestones, {
+        from: organizers[1]
+      })
+
+      // activating the campaign
+      const organizerQuota = 50;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+
+      let deadlineBefore = await campaignContract.deadline();
+
+      // donating enough to reach the first milestone
+      await campaignContract.donate([10, 90], {
+        from: donor,
+        value: 200000000
+      });
+
+      let deadlineAfter = await campaignContract.deadline();
+      assert(deadlineAfter > deadlineBefore, "deadline should have been postponed");
+
+
+      deadlineBefore = await campaignContract.deadline();
+
+      // donating enough to reach the second milestone
+      await campaignContract.donate([10, 90], {
+        from: donor,
+        value: 300000000
+      });
+
+      deadlineAfter = await campaignContract.deadline();
+      assert(deadlineAfter > deadlineBefore, "deadline should have been postponed for the second milestone");
+
+    })
+
+    it("should not reach same milestone twice", async () => {
+      // setting the milestones
+      const milestones = [100000000, 5000000000, 10000000000000];
+      await campaignContract.setMilestones(milestones, {
+        from: organizers[1]
+      })
+
+      // activating the campaign
+      const organizerQuota = 50;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+
+      // donating enough to reach the first milestone
+      await campaignContract.donate([10, 90], {
+        from: donor,
+        value: 200000000
+      });
+
+      const deadlineAfterFirstDonation = await campaignContract.deadline();
+      // donating againg, although not enough to reach the second milestone
+      await campaignContract.donate([10, 90], {
+        from: donor,
+        value: 1000
+      });
+
+      const deadlineAfterSecondDonation = await campaignContract.deadline();
+
+      // deadline should not be postponed
+      assert.equal(deadlineAfterFirstDonation.toString(), deadlineAfterSecondDonation.toString(), "deadline shouldn't have been postponed");
     })
   });
 });

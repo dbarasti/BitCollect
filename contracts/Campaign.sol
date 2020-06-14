@@ -12,6 +12,11 @@ contract Campaign {
         uint256 amount;
     }
 
+    struct Milestone {
+        bool reached;
+        uint256 goal;
+    }
+
     modifier is_organizer() {
         Organizer storage org = organizersFundingStatus[msg.sender];
         require(
@@ -61,6 +66,7 @@ contract Campaign {
     address[] public beneficiaries;
     uint256[] private rewardAmounts;
     string[] private rewardPrizes;
+    Milestone[] private milestones;
     uint256 public deadline;
     mapping(address => Organizer) private organizersFundingStatus;
     mapping(address => uint256) private beneficiariesAmounts;
@@ -118,9 +124,8 @@ contract Campaign {
             "Can't accept donations. Organizers must fund the Campaign first"
         );
         distributeFunds(distribution);
-        if (rewardAmounts.length > 0) {
-            checkForReward();
-        }
+        checkForReward();
+        checkMilestone();
         emit new_donation(msg.sender, msg.value);
     }
 
@@ -206,12 +211,18 @@ contract Campaign {
             status == Status.EMPTY,
             "Operation not permitted. Beneficiaries didn't withdraw"
         );
+        require(
+            status != Status.DISABLED,
+            "Operation not permitted. Contract already disabled"
+        );
         status = Status.DISABLED;
         emit contract_deactivated();
     }
 
+    // TODO add force=false parameter to allow override of previous rewards
     function setRewards(uint256[] memory _amounts, string[] memory _prizes)
         public
+        is_organizer()
     {
         require(
             _amounts.length == _prizes.length,
@@ -231,6 +242,8 @@ contract Campaign {
     }
 
     function checkForReward() private {
+        if (rewardPrizes.length == 0) return;
+
         for (uint256 i = 0; i < rewardAmounts.length; i++) {
             if (msg.value >= rewardAmounts[i]) {
                 donorsRewards[msg.sender].push(rewardPrizes[i]);
@@ -239,4 +252,34 @@ contract Campaign {
             }
         }
     }
+
+    // TODO add force=false parameter to allow override of previous milestones
+    function setMilestones(uint256[] memory _milestones) public is_organizer() {
+        for (uint256 i = 0; i < _milestones.length; i++) {
+            milestones.push(Milestone({reached: false, goal: _milestones[i]}));
+        }
+    }
+
+    function checkMilestone() private {
+        if (milestones.length == 0) return;
+
+        for (uint256 i = 0; i < milestones.length; i++) {
+            if (
+                milestones[i].reached == false &&
+                donationsBalance >= milestones[i].goal
+            ) {
+                // alternatively might be better to remove the entry from the array!
+                // in this way we could avoid using the struct
+                milestones[i].reached = true;
+                // extend deadline by an hour
+                deadline += 3600;
+                // TODO MIOwithdraw from a third-party smart contract
+            }
+            if (donationsBalance < milestones[i].goal) {
+                break; // assume sorted milestones list
+            }
+        }
+    }
+
+    // TODO EMIT EVENTS FOR SHOULD FEATURES
 }
