@@ -75,7 +75,7 @@ contract Campaign {
     mapping(address => Donation[]) private donorsHistory;
     mapping(address => string[]) private donorsRewards;
     uint256 initialFundsCounter;
-    uint256 donationsBalance;
+    uint256 public donationsBalance;
 
     constructor(
         address[] memory _organizers,
@@ -286,5 +286,27 @@ contract Campaign {
         }
     }
 
+    // fallback to receive rewards
+    function() external payable {
+        // receive funds
+        donationsBalance += msg.value;
+        uint256 distributed = 0;
+        uint256 change;
+        uint256 equalSplit = beneficiaries.length;
+        uint256 amount;
+        for (uint256 i = 0; i < beneficiaries.length; i++) {
+            amount = (msg.value * equalSplit) / 100;
+            beneficiariesAmounts[beneficiaries[i]] += amount;
+            distributed += amount;
+        }
+        change = msg.value - distributed;
+        //change (if present) is given to the first beneficiary (just for simplicity)
+        if (change > 0) {
+            beneficiariesAmounts[beneficiaries[0]] += change;
+        }
+    }
+
     // TODO EMIT EVENTS FOR SHOULD FEATURES
+    // TODO use SafeMath
+    // TODO define is_ordered() modifier to check arrays
 }
