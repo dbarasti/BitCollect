@@ -391,7 +391,7 @@ contract('Campaign', accounts => {
     able to withdraw from a third-party smart contract an
     amount as a reward for its success.
     */
-    it('should extend the deadline after reaching a milestone', async () => {
+    it('should extend the deadline and collect reward after reaching a milestone', async () => {
       rewarderContract = await CampaignRewarder.new();
       await web3.eth.sendTransaction({
         from: accounts[9],
@@ -436,7 +436,8 @@ contract('Campaign', accounts => {
 
       deadlineAfter = await campaignContract.deadline();
       assert(deadlineAfter > deadlineBefore, "deadline should have been postponed for the second milestone");
-
+      const balanceAfterSecondDonation = await web3.eth.getBalance(campaignContract.address);
+      assert(parseFloat(balanceAfterSecondDonation) > 200000150, "expected campaign to receive money");
     })
 
     it("should not reach same milestone twice", async () => {
@@ -469,8 +470,8 @@ contract('Campaign', accounts => {
         from: donor,
         value: 200000000
       });
-
       const deadlineAfterFirstDonation = await campaignContract.deadline();
+      const balanceAfterFirstDonation = await web3.eth.getBalance(campaignContract.address);
       // donating againg, although not enough to reach the second milestone
       await campaignContract.donate([10, 90], {
         from: donor,
@@ -478,44 +479,11 @@ contract('Campaign', accounts => {
       });
 
       const deadlineAfterSecondDonation = await campaignContract.deadline();
+      const balanceAfterSecondDonation = await web3.eth.getBalance(campaignContract.address);
 
       // deadline should not be postponed
       assert.equal(deadlineAfterFirstDonation.toString(), deadlineAfterSecondDonation.toString(), "deadline shouldn't have been postponed");
-    })
-
-    it('should withdraw a prize when a milestone is reached', async () => {
-      rewarderContract = await CampaignRewarder.new();
-      await web3.eth.sendTransaction({
-        from: accounts[9],
-        value: 1000000000,
-        to: rewarderContract.address
-      });
-      await rewarderContract.addCampaign(campaignContract.address);
-      // setting the milestones
-      const milestones = [100000000, 5000000000, 10000000000000];
-      await campaignContract.setMilestones(milestones, rewarderContract.address, {
-        from: organizers[1]
-      });
-
-      // activating the campaign
-      const organizerQuota = 50;
-      organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
-          from: organizer,
-          value: organizerQuota
-        });
-      });
-
-      // donating enough to reach the first milestone
-      await campaignContract.donate([10, 90], {
-        from: donor,
-        value: 200000000
-      });
-
-      // await rewarderContract.claimReward(campaignContract.address);
-      const balanceAfter = await web3.eth.getBalance(campaignContract.address);
-
-      assert(parseFloat(balanceAfter) > 200000150, "expected campaign to receive money");
+      assert.equal(balanceAfterSecondDonation, parseFloat(balanceAfterFirstDonation) + 1000, "balance shouldn't have changed");
     })
   });
 });
