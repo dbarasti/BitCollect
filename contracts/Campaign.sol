@@ -1,5 +1,6 @@
 pragma solidity 0.5.16;
 pragma experimental ABIEncoderV2;
+import "./CampaignRewarder.sol";
 
 contract Campaign {
     struct Organizer {
@@ -69,6 +70,7 @@ contract Campaign {
     uint256[] private rewardAmounts;
     string[] private rewardPrizes;
     Milestone[] private milestones;
+    CampaignRewarder private rewarder;
     uint256 public deadline;
     mapping(address => Organizer) private organizersFundingStatus;
     mapping(address => uint256) private beneficiariesAmounts;
@@ -256,7 +258,15 @@ contract Campaign {
     }
 
     // TODO add force=false parameter to allow override of previous milestones
-    function setMilestones(uint256[] memory _milestones) public is_organizer() {
+    function setMilestones(
+        uint256[] memory _milestones,
+        address payable _rewarder
+    ) public is_organizer() {
+        require(
+            milestones.length == 0,
+            "Milestones not set. Configuration already present"
+        );
+        rewarder = CampaignRewarder(_rewarder);
         for (uint256 i = 0; i < _milestones.length; i++) {
             milestones.push(Milestone({reached: false, goal: _milestones[i]}));
         }
@@ -276,8 +286,8 @@ contract Campaign {
                 milestones[i].reached = true;
                 // extend deadline by an hour
                 deadline += 3600;
-                // TODO withdraw from a third-party smart contract
-
+                // withdraw from a third-party smart contract
+                rewarder.claimReward(address(this));
                 emit milestone_reached(milestones[i].goal);
             }
             if (donationsBalance < milestones[i].goal) {
@@ -306,7 +316,6 @@ contract Campaign {
         }
     }
 
-    // TODO EMIT EVENTS FOR SHOULD FEATURES
     // TODO use SafeMath
     // TODO define is_ordered() modifier to check arrays
 }

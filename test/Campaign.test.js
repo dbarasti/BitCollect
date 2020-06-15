@@ -1,9 +1,11 @@
 const Campaign = artifacts.require('./Campaign');
+const CampaignRewarder = artifacts.require('./CampaignRewarder');
 const truffleAssert = require('truffle-assertions');
 require("./utils.js");
 
 
 let campaignContract;
+let rewarderContract;
 const campaignDeadline = 2538374999; //~2050
 
 async function sleep(ms) {
@@ -356,15 +358,29 @@ contract('Campaign', accounts => {
 
   describe('test milestones', () => {
     it('should allow an organizer to specify milestones', async () => {
+      rewarderContract = await CampaignRewarder.new();
       const milestones = [100000000, 500000000, 10000000000000];
-      await campaignContract.setMilestones(milestones, {
+      await campaignContract.setMilestones(milestones, rewarderContract.address, {
         from: organizers[0]
       })
     })
 
-    it('should disallow non-organizers to specify milestones', async () => {
+    it('should refuse to specify milestones twice', async () => {
+      rewarderContract = await CampaignRewarder.new();
       const milestones = [100000000, 500000000, 10000000000000];
-      await truffleAssert.reverts(campaignContract.setMilestones(milestones, {
+      await campaignContract.setMilestones(milestones, rewarderContract.address, {
+        from: organizers[0]
+      });
+
+      await truffleAssert.reverts(campaignContract.setMilestones(milestones, rewarderContract.address, {
+        from: organizers[0]
+      }), "Milestones not set. Configuration already present");
+    })
+
+    it('should disallow non-organizers to specify milestones', async () => {
+      rewarderContract = await CampaignRewarder.new();
+      const milestones = [100000000, 500000000, 10000000000000];
+      await truffleAssert.reverts(campaignContract.setMilestones(milestones, rewarderContract.address, {
         from: donor
       }), "Operation not allowed by non-organizer");
     })
@@ -376,8 +392,16 @@ contract('Campaign', accounts => {
     amount as a reward for its success.
     */
     it('should extend the deadline after reaching a milestone', async () => {
+      rewarderContract = await CampaignRewarder.new();
+      await web3.eth.sendTransaction({
+        from: accounts[9],
+        value: 1000000000,
+        to: rewarderContract.address
+      });
+      rewarderContract.addCampaign(campaignContract.address);
+
       const milestones = [100000000, 500000000, 10000000000000];
-      await campaignContract.setMilestones(milestones, {
+      await campaignContract.setMilestones(milestones, rewarderContract.address, {
         from: organizers[1]
       })
 
@@ -416,11 +440,20 @@ contract('Campaign', accounts => {
     })
 
     it("should not reach same milestone twice", async () => {
+      rewarderContract = await CampaignRewarder.new();
+      await web3.eth.sendTransaction({
+        from: accounts[9],
+        value: 1000000000,
+        to: rewarderContract.address
+      });
+      rewarderContract.addCampaign(campaignContract.address);
+
       // setting the milestones
       const milestones = [100000000, 5000000000, 10000000000000];
-      await campaignContract.setMilestones(milestones, {
+      await campaignContract.setMilestones(milestones, rewarderContract.address, {
         from: organizers[1]
       })
+
 
       // activating the campaign
       const organizerQuota = 50;
@@ -448,6 +481,41 @@ contract('Campaign', accounts => {
 
       // deadline should not be postponed
       assert.equal(deadlineAfterFirstDonation.toString(), deadlineAfterSecondDonation.toString(), "deadline shouldn't have been postponed");
+    })
+
+    it('should withdraw a prize when a milestone is reached', async () => {
+      rewarderContract = await CampaignRewarder.new();
+      await web3.eth.sendTransaction({
+        from: accounts[9],
+        value: 1000000000,
+        to: rewarderContract.address
+      });
+      await rewarderContract.addCampaign(campaignContract.address);
+      // setting the milestones
+      const milestones = [100000000, 5000000000, 10000000000000];
+      await campaignContract.setMilestones(milestones, rewarderContract.address, {
+        from: organizers[1]
+      });
+
+      // activating the campaign
+      const organizerQuota = 50;
+      organizers.forEach(async organizer => {
+        await campaignContract.initialize([50, 50], {
+          from: organizer,
+          value: organizerQuota
+        });
+      });
+
+      // donating enough to reach the first milestone
+      await campaignContract.donate([10, 90], {
+        from: donor,
+        value: 200000000
+      });
+
+      // await rewarderContract.claimReward(campaignContract.address);
+      const balanceAfter = await web3.eth.getBalance(campaignContract.address);
+
+      assert(parseFloat(balanceAfter) > 200000150, "expected campaign to receive money");
     })
   });
 });

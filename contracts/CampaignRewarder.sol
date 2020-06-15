@@ -1,5 +1,4 @@
 pragma solidity 0.5.16;
-import "./Campaign.sol";
 
 contract CampaignRewarder {
     struct Milestone {
@@ -29,7 +28,7 @@ contract CampaignRewarder {
         campaigns[campaign] = true;
     }
 
-    function claimReward(address campaignAddress) public {
+    function claimReward(address campaignAddress) external {
         require(
             campaigns[campaignAddress] == true,
             "Operation not allowed, campaign not registered"
@@ -39,6 +38,9 @@ contract CampaignRewarder {
 
         // send reward
         (bool success, ) = campaignAddress.call.value(10)("");
-        require(success == true, "Error while sending reward");
+        require(
+            success == true,
+            "Error while sending reward. Are there any ether on this account?"
+        );
     }
 }
