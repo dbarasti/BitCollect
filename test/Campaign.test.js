@@ -73,6 +73,13 @@ contract('Campaign', accounts => {
       assert.equal(hasFunded, true, 'state of organizer should have changed')
     });
 
+    it('should refuse incomplete distributions', async () => {
+      await truffleAssert.reverts(campaignContract.initialize([50], {
+        from: organizers[0],
+        value: 5000000
+      }), "Distributions don't match the beneficiaries");
+    })
+
     it('should refuse initial funding with 0 wei', async () => {
       await truffleAssert.reverts(campaignContract.initialize([50, 50], {
         from: organizers[0],
@@ -279,6 +286,12 @@ contract('Campaign', accounts => {
         from: organizers[0]
       })
       assert.equal(await campaignContract.getStatus(), 4, "status is not set to DISABLED (val=4)")
+    })
+
+    it('should disallow non-organizers to deactivate the contract', async () => {
+      await truffleAssert.reverts(campaignContract.deactivate({
+        from: donor
+      }), "Operation not allowed by non-organizer");
     })
   });
 

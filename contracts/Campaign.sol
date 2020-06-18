@@ -28,6 +28,10 @@ contract Campaign {
     }
 
     modifier sums_to_100(uint256[] memory distribution) {
+        require(
+            distribution.length == beneficiaries.length,
+            "Distributions don't match the beneficiaries"
+        );
         uint256 sum = 0;
         for (uint256 i = 0; i < distribution.length; i++) {
             sum += distribution[i];
@@ -77,7 +81,7 @@ contract Campaign {
     mapping(address => Donation[]) private donorsHistory;
     mapping(address => string[]) private donorsRewards;
     uint256 initialFundsCounter;
-    uint256 public donationsBalance;
+    uint256 private donationsBalance;
 
     constructor(
         address[] memory _organizers,
@@ -115,6 +119,10 @@ contract Campaign {
 
     function getStatus() public view returns (Status) {
         return status;
+    }
+
+    function getBalance() public view returns (uint256) {
+        return donationsBalance;
     }
 
     function donate(uint256[] calldata distribution)
@@ -207,7 +215,7 @@ contract Campaign {
         emit beneficiary_withdrew(amount);
     }
 
-    function deactivate() public {
+    function deactivate() public is_organizer() {
         if (status == Status.CONCLUDED && donationsBalance == 0) {
             status = Status.EMPTY;
         }
