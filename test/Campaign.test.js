@@ -230,7 +230,7 @@ contract('Campaign', accounts => {
     });
 
     it('should refuse withdraw if campaign is not CONCLUDED', async () => {
-      nearTimestamp = Math.round(Date.now() / 1000) + 2;
+      nearTimestamp = Math.round(Date.now() / 1000) + 3;
       campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
         from: accounts[0]
       });
