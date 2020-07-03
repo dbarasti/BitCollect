@@ -419,7 +419,7 @@ contract('Campaign', accounts => {
       rewarderContract = await CampaignRewarder.new();
       await web3.eth.sendTransaction({
         from: accounts[9],
-        value: 1000000000,
+        value: 100000000,
         to: rewarderContract.address
       });
       rewarderContract.addCampaign(campaignContract.address);
