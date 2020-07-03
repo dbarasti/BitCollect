@@ -16,8 +16,6 @@ contract CampaignRewarder {
     address owner;
     mapping(address => bool) private campaigns;
 
-    // mapping(address, Milestone[]) private milestones;
-
     constructor() public {
         owner = msg.sender;
     }
