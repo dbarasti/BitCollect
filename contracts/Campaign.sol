@@ -67,7 +67,7 @@ contract Campaign {
     event reward_set();
     event milestone_set();
     event milestone_reached(uint256);
-    enum Status {INITIALIZED, ONGOING, CONCLUDED, EMPTY, DISABLED}
+    enum Status {CREATED, ONGOING, CONCLUDED, EMPTY, DISABLED}
     Status private status;
     address[] public organizers;
     address[] public beneficiaries;
@@ -95,7 +95,7 @@ contract Campaign {
         organizers = _organizers;
         beneficiaries = _beneficiaries;
         deadline = _deadline;
-        status = Status.INITIALIZED;
+        status = Status.CREATED;
         updateOrganizersState();
         emit new_campaign();
     }
