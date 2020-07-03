@@ -430,7 +430,7 @@ contract('Campaign', accounts => {
       let deadlineBefore = await campaignContract.deadline();
 
       // donating enough to reach the first milestone
-      await campaignContract.donate([10, 90], {
+      let res = await campaignContract.donate([10, 90], {
         from: donor,
         value: 200000000
       });
