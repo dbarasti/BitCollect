@@ -305,6 +305,17 @@ contract('Campaign', accounts => {
       truffleAssert.eventEmitted(res, 'reward_set');
     })
 
+    it('should refuse to specify rewards twice', async () => {
+      amounts = [1000000000000, 1000000000000000, 5000000000000000];
+      rewards = ["ABC123", "DEF123", "GHI123"];
+      await campaignContract.setRewards(amounts, rewards, {
+        from: organizers[0]
+      });
+      await truffleAssert.reverts(campaignContract.setRewards(amounts, rewards, {
+        from: organizers[0]
+      }), "Rewards not set. Configuration already present");
+    })
+
     it('should refuse to non-organizers to specify rewards', async () => {
       amounts = [1000000000000, 1000000000000000, 5000000000000000];
       rewards = ["ABC123", "DEF123", "GHI123"];
