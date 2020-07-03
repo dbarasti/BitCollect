@@ -34,8 +34,8 @@ contract CampaignRewarder {
         // since the campaign is added by the same account creating the rewarder,
         //
 
-        // send reward of 0.1 eth
-        (bool success, ) = campaignAddress.call.value(100000000000000000)("");
+        // send reward of 1000000 wei
+        (bool success, ) = campaignAddress.call.value(1000000)("");
         require(
             success == true,
             "Error while sending reward. Are there any ether on this account?"
