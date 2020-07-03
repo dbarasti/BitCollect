@@ -237,6 +237,10 @@ contract Campaign {
         is_organizer()
     {
         require(
+            rewardAmounts.length == 0,
+            "Rewards not set. Configuration already present"
+        );
+        require(
             _amounts.length == _prizes.length,
             "Rewards not set. Parameter sizes do not match"
         );
