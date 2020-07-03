@@ -231,7 +231,6 @@ contract Campaign {
         emit contract_deactivated();
     }
 
-    // TODO add force=false parameter to allow override of previous rewards
     function setRewards(uint256[] memory _amounts, string[] memory _prizes)
         public
         is_organizer()
@@ -269,7 +268,6 @@ contract Campaign {
         }
     }
 
-    // TODO add force=false parameter to allow override of previous milestones
     function setMilestones(
         uint256[] memory _milestones,
         address payable _rewarder
