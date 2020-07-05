@@ -15,6 +15,7 @@ contract CampaignRewarder {
 
     address owner;
     mapping(address => bool) private campaigns;
+    uint256 private constant PRIZE = 1000000;
 
     constructor() public {
         owner = msg.sender;
@@ -32,10 +33,10 @@ contract CampaignRewarder {
             "Operation not allowed, campaign not registered"
         );
         // since the campaign is added by the same account creating the rewarder,
-        //
+        // I can suppose that the transfer is authorized
 
         // send reward of 1000000 wei
-        (bool success, ) = campaignAddress.call.value(1000000)("");
+        (bool success, ) = campaignAddress.call.value(PRIZE)("");
         require(
             success == true,
             "Error while sending reward. Are there any ether on this account?"
