@@ -213,7 +213,7 @@ contract('Campaign', accounts => {
         value: 5000000000000
       });
 
-      await sleep(2000);
+      await sleep(2500);
 
       const contractBalanceBefore = await web3.eth.getBalance(campaignContract.address);
       await campaignContract.withdraw({
