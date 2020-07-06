@@ -36,7 +36,7 @@ contract Campaign {
         );
         uint256 sum = 0;
         for (uint256 i = 0; i < distribution.length; i++) {
-            sum += distribution[i];
+            sum = sum.add(distribution[i]);
         }
         require(sum == 100, "Sum of distributions should be 100");
         _;
@@ -156,7 +156,7 @@ contract Campaign {
             "Initial funding already sent"
         );
         organizersFundingStatus[msg.sender].hasFunded = true;
-        initialFundsCounter++;
+        initialFundsCounter = initialFundsCounter.add(1);
         if (initialFundsCounter == organizers.length) {
             emit campaign_initialized();
             status = Status.ONGOING;
@@ -165,19 +165,21 @@ contract Campaign {
     }
 
     function distributeFunds(uint256[] memory distribution) private {
-        donationsBalance += msg.value;
+        donationsBalance = donationsBalance.add(msg.value);
         uint256 distributed = 0;
         uint256 change;
         for (uint256 i = 0; i < beneficiaries.length; i++) {
-            beneficiariesAmounts[beneficiaries[i]] +=
-                (msg.value * distribution[i]) /
-                100;
-            distributed += (msg.value * distribution[i]) / 100;
+            beneficiariesAmounts[beneficiaries[i]] = beneficiariesAmounts[beneficiaries[i]]
+                .add((msg.value.mul(distribution[i])).div(100));
+            distributed = distributed.add(
+                (msg.value.mul(distribution[i])).div(100)
+            );
         }
-        change = msg.value - distributed;
+        change = msg.value.sub(distributed);
         //change (if present) is given to the first beneficiary (just for simplicity)
         if (change > 0) {
-            beneficiariesAmounts[beneficiaries[0]] += change;
+            beneficiariesAmounts[beneficiaries[0]] = beneficiariesAmounts[beneficiaries[0]]
+                .add(change);
         }
         donorsHistory[msg.sender].push(
             Donation({timestamp: now, amount: msg.value})
@@ -297,7 +299,7 @@ contract Campaign {
                 // in this way we could avoid using the struct
                 milestones[i].reached = true;
                 // extend deadline by an hour
-                deadline += 3600;
+                deadline = deadline.add(3600);
                 // withdraw from a third-party smart contract
                 rewarder.claimReward(address(this));
                 emit milestone_reached(milestones[i].goal);
@@ -311,20 +313,22 @@ contract Campaign {
     // fallback to receive rewards from CampaignRewarder contract
     function() external payable not_concluded() {
         // receive funds
-        donationsBalance += msg.value;
+        donationsBalance = donationsBalance.add(msg.value);
         uint256 distributed = 0;
         uint256 change;
         uint256 equalSplit = beneficiaries.length;
         uint256 amount;
         for (uint256 i = 0; i < beneficiaries.length; i++) {
-            amount = (msg.value * equalSplit) / 100;
-            beneficiariesAmounts[beneficiaries[i]] += amount;
-            distributed += amount;
+            amount = (msg.value.mul(equalSplit)).div(100);
+            beneficiariesAmounts[beneficiaries[i]] = beneficiariesAmounts[beneficiaries[i]]
+                .add(amount);
+            distributed = distributed.add(amount);
         }
-        change = msg.value - distributed;
+        change = msg.value.sub(distributed);
         //change (if present) is given to the first beneficiary (just for simplicity)
         if (change > 0) {
-            beneficiariesAmounts[beneficiaries[0]] += change;
+            beneficiariesAmounts[beneficiaries[0]] = beneficiariesAmounts[beneficiaries[0]]
+                .add(change);
         }
     }
 
