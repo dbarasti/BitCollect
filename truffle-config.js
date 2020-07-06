@@ -50,7 +50,7 @@ module.exports = {
 
     docker: {
       host: "ganache-cli",
-      port: 7545,
+      port: 8545,
       network_id: "*"
     }
 
