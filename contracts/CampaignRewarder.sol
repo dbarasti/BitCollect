@@ -21,7 +21,7 @@ contract CampaignRewarder {
         owner = msg.sender;
     }
 
-    function() external payable {}
+    receive() external payable {}
 
     function addCampaign(address campaign) public is_owner() {
         campaigns[campaign] = true;

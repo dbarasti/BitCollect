@@ -311,7 +311,7 @@ contract Campaign {
     }
 
     // fallback to receive rewards from CampaignRewarder contract
-    function() external payable not_concluded() {
+    receive() external payable not_concluded() {
         // receive funds
         donationsBalance = donationsBalance.add(msg.value);
         uint256 distributed = 0;
