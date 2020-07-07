@@ -14,8 +14,8 @@ async function sleep(ms) {
 
 contract('Campaign', accounts => {
   const organizers = accounts.slice(0, 3);
-  const beneficiaries = accounts.slice(3, 5);
-  const donor = accounts[5];
+  const beneficiaries = accounts.slice(3, 6);
+  const donor = accounts[7];
 
   beforeEach(async () => {
     campaignContract = await Campaign.new(organizers, beneficiaries, campaignDeadline, {
@@ -56,14 +56,14 @@ contract('Campaign', accounts => {
 
   describe('test contract activation', () => {
     it('should refuse initial funding by non-organizers', async () => {
-      await truffleAssert.reverts(campaignContract.initialize([50, 50], {
+      await truffleAssert.reverts(campaignContract.initialize([50, 50, 0], {
         from: donor,
         value: 5000000000000
       }), "Operation not allowed by non-organizer");
     });
 
     it('should accept initial funding by organizers', async () => {
-      await campaignContract.initialize([50, 50], {
+      await campaignContract.initialize([50, 50, 0], {
         from: organizers[0],
         value: 500000000
       })
@@ -81,18 +81,18 @@ contract('Campaign', accounts => {
     })
 
     it('should refuse initial funding with 0 wei', async () => {
-      await truffleAssert.reverts(campaignContract.initialize([50, 50], {
+      await truffleAssert.reverts(campaignContract.initialize([50, 10, 40], {
         from: organizers[0],
         value: 0
       }), "Initial funding must be > 0");
     });
 
     it('should refuse initial funding sent twice', async () => {
-      await campaignContract.initialize([50, 50], {
+      await campaignContract.initialize([50, 10, 40], {
         from: organizers[0],
         value: 500000000
       });
-      await truffleAssert.reverts(campaignContract.initialize([50, 50], {
+      await truffleAssert.reverts(campaignContract.initialize([50, 40, 10], {
         from: organizers[0],
         value: 5000
       }), "Initial funding already sent");
@@ -100,7 +100,7 @@ contract('Campaign', accounts => {
 
     it('shuld enter ONGOING status after all organizers send funds', async () => {
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([20, 30, 50], {
           from: organizer,
           value: 500000000
         });
@@ -112,7 +112,7 @@ contract('Campaign', accounts => {
 
   describe('test donations', () => {
     it('should refuse donations before organizer/s fund the campaign', async () => {
-      await truffleAssert.reverts(campaignContract.donate([60, 40], {
+      await truffleAssert.reverts(campaignContract.donate([60, 10, 30], {
         from: donor,
         value: 5000000000000
       }), "Can't accept donations. Organizers must fund the Campaign first");
@@ -122,14 +122,14 @@ contract('Campaign', accounts => {
       const organizerQuota = 500000000;
       let totalQuota = 0;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 50, 0], {
           from: organizer,
           value: organizerQuota
         });
         totalQuota += organizerQuota;
       });
 
-      await campaignContract.donate([60, 40], {
+      await campaignContract.donate([60, 40, 0], {
         from: donor,
         value: 5000000000000
       });
@@ -144,13 +144,13 @@ contract('Campaign', accounts => {
     it('should keep track of donors\' donations', async () => {
       const organizerQuota = 500000000;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 50, 0], {
           from: organizer,
           value: organizerQuota
         });
       });
 
-      await campaignContract.donate([60, 40], {
+      await campaignContract.donate([60, 10, 30], {
         from: donor,
         value: 5000000000000
       });
@@ -165,7 +165,7 @@ contract('Campaign', accounts => {
       });
 
       const organizerQuota = 500000000;
-      await truffleAssert.reverts(campaignContract.initialize([50, 50], {
+      await truffleAssert.reverts(campaignContract.initialize([10, 10, 80], {
         from: organizers[0],
         value: organizerQuota
       }), "Campaign has expired");
@@ -178,13 +178,13 @@ contract('Campaign', accounts => {
       });
       const organizerQuota = 500000000;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 10, 40], {
           from: organizer,
           value: organizerQuota
         });
       });
       await sleep(2500);
-      await truffleAssert.reverts(campaignContract.donate([60, 40], {
+      await truffleAssert.reverts(campaignContract.donate([60, 10, 30], {
         from: donor,
         value: 5000000000000
       }), "Campaign has expired");
@@ -201,14 +201,14 @@ contract('Campaign', accounts => {
       const organizerQuota = 500000000;
       let totalQuota = 0;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 50, 0], {
           from: organizer,
           value: organizerQuota
         });
         totalQuota += organizerQuota;
       });
 
-      await campaignContract.donate([60, 40], {
+      await campaignContract.donate([60, 10, 30], {
         from: donor,
         value: 5000000000000
       });
@@ -237,13 +237,13 @@ contract('Campaign', accounts => {
 
       const organizerQuota = 500000000;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([10, 40, 50], {
           from: organizer,
           value: organizerQuota
         });
       });
 
-      await campaignContract.donate([60, 40], {
+      await campaignContract.donate([10, 50, 40], {
         from: donor,
         value: 5000000000000
       });
@@ -264,7 +264,7 @@ contract('Campaign', accounts => {
 
       const organizerQuota = 500000000;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([30, 20, 50], {
           from: organizer,
           value: organizerQuota
         });
@@ -280,6 +280,10 @@ contract('Campaign', accounts => {
 
       await campaignContract.withdraw({
         from: beneficiaries[1]
+      });
+
+      await campaignContract.withdraw({
+        from: beneficiaries[2]
       });
 
       await campaignContract.deactivate({
@@ -339,13 +343,13 @@ contract('Campaign', accounts => {
 
       const organizerQuota = 500000000;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 50, 0], {
           from: organizer,
           value: organizerQuota
         });
       });
 
-      await campaignContract.donate([10, 90], {
+      await campaignContract.donate([10, 10, 80], {
         from: donor,
         value: 1000000
       });
@@ -362,13 +366,13 @@ contract('Campaign', accounts => {
 
       const organizerQuota = 500000000;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 50, 0], {
           from: organizer,
           value: organizerQuota
         });
       });
 
-      await campaignContract.donate([10, 90], {
+      await campaignContract.donate([10, 80, 10], {
         from: donor,
         value: 1000000000000000
       });
@@ -432,7 +436,7 @@ contract('Campaign', accounts => {
       // activating the campaign
       const organizerQuota = 50;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 10, 40], {
           from: organizer,
           value: organizerQuota
         });
@@ -441,7 +445,7 @@ contract('Campaign', accounts => {
       let deadlineBefore = await campaignContract.deadline();
 
       // donating enough to reach the first milestone
-      let res = await campaignContract.donate([10, 90], {
+      let res = await campaignContract.donate([10, 80, 10], {
         from: donor,
         value: 200000000
       });
@@ -453,7 +457,7 @@ contract('Campaign', accounts => {
       deadlineBefore = await campaignContract.deadline();
 
       // donating enough to reach the second milestone
-      await campaignContract.donate([10, 90], {
+      await campaignContract.donate([10, 80, 10], {
         from: donor,
         value: 300000000
       });
@@ -483,21 +487,21 @@ contract('Campaign', accounts => {
       // activating the campaign
       const organizerQuota = 50;
       organizers.forEach(async organizer => {
-        await campaignContract.initialize([50, 50], {
+        await campaignContract.initialize([50, 10, 40], {
           from: organizer,
           value: organizerQuota
         });
       });
 
       // donating enough to reach the first milestone
-      await campaignContract.donate([10, 90], {
+      await campaignContract.donate([10, 10, 80], {
         from: donor,
         value: 200000000
       });
       const deadlineAfterFirstDonation = await campaignContract.deadline();
       const balanceAfterFirstDonation = await web3.eth.getBalance(campaignContract.address);
       // donating againg, although not enough to reach the second milestone
-      await campaignContract.donate([10, 90], {
+      await campaignContract.donate([10, 80, 10], {
         from: donor,
         value: 1000
       });
