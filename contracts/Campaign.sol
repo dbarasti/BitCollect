@@ -208,8 +208,9 @@ contract Campaign {
             amount > 0,
             "Error. No amount available or beneficiary non-existing"
         );
-        //todo check underflow
-        donationsBalance -= beneficiariesAmounts[msg.sender];
+        donationsBalance = donationsBalance.sub(
+            beneficiariesAmounts[msg.sender]
+        );
         beneficiariesAmounts[msg.sender] = 0;
         if (donationsBalance == 0) {
             status = Status.EMPTY;
@@ -295,8 +296,6 @@ contract Campaign {
                 milestones[i].reached == false &&
                 donationsBalance >= milestones[i].goal
             ) {
-                // alternatively might be better to remove the entry from the array!
-                // in this way we could avoid using the struct
                 milestones[i].reached = true;
                 // extend deadline by an hour
                 deadline = deadline.add(3600);
@@ -331,7 +330,4 @@ contract Campaign {
                 .add(change);
         }
     }
-
-    // TODO use SafeMath
-    // TODO define is_ordered() modifier to check arrays
 }
