@@ -73,6 +73,10 @@ contract('Campaign', accounts => {
       assert.equal(hasFunded, true, 'state of organizer should have changed')
     });
 
+    /**
+     * If the organizer doesn't specify a valid distribution for the initialization amount, 
+     * the function should throw an exeption
+     */
     it('should refuse incomplete distributions', async () => {
       await truffleAssert.reverts(campaignContract.initialize([50], {
         from: organizers[0],
@@ -80,6 +84,9 @@ contract('Campaign', accounts => {
       }), "Distributions don't match the beneficiaries");
     })
 
+    /**
+     * The initial funding by the organizers should be greater than 0 wei
+     */
     it('should refuse initial funding with 0 wei', async () => {
       await truffleAssert.reverts(campaignContract.initialize([50, 10, 40], {
         from: organizers[0],
@@ -121,6 +128,7 @@ contract('Campaign', accounts => {
     it('should allow a donor to split amount among beneficiaries', async () => {
       const organizerQuota = 500000000;
       let totalQuota = 0;
+      // first of all I need to initialize the campaign
       organizers.forEach(async organizer => {
         await campaignContract.initialize([50, 50, 0], {
           from: organizer,
@@ -133,6 +141,8 @@ contract('Campaign', accounts => {
         from: donor,
         value: 5000000000000
       });
+      // now we check that the balance is as expected, 
+      // and also that the amounts have been distributed properly among beneficiaries
       let balance = await web3.eth.getBalance(campaignContract.address)
       assert.equal(balance, 5000000000000 + totalQuota, 'contract balance is not as expected');
       const firstBeneficiaryAmount = await campaignContract.beneficiaryAmount(beneficiaries[0]);
@@ -143,6 +153,7 @@ contract('Campaign', accounts => {
 
     it('should keep track of donors\' donations', async () => {
       const organizerQuota = 500000000;
+      // first of all I need to initialize the campaign
       organizers.forEach(async organizer => {
         await campaignContract.initialize([50, 50, 0], {
           from: organizer,
@@ -154,11 +165,13 @@ contract('Campaign', accounts => {
         from: donor,
         value: 5000000000000
       });
+      // now I check that the campaign has registered the donation of the donor
       const numberOfDonations = await campaignContract.donationsOf(donor);
       assert.equal(numberOfDonations, 1, "donations of donor should have been one")
     });
 
     it('should refuse initializations after deadline', async () => {
+      // let's set the deadline to a past timestamp, so that it will immediately expire
       pastTimestamp = 1591690199;
       campaignContract = await Campaign.new(organizers, beneficiaries, pastTimestamp, {
         from: accounts[0]
@@ -172,17 +185,20 @@ contract('Campaign', accounts => {
     })
 
     it('should refuse donation after deadline', async () => {
-      nearTimestamp = Math.round(Date.now() / 1000) + 1; //one second from now
+      // let's set the deadline to one second from now
+      nearTimestamp = Math.round(Date.now() / 1000) + 1;
       campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
         from: accounts[0]
       });
       const organizerQuota = 500000000;
+      // once again, we initialize the campaign before the campaign expires
       organizers.forEach(async organizer => {
         await campaignContract.initialize([50, 10, 40], {
           from: organizer,
           value: organizerQuota
         });
       });
+      // let's wait so that the campaign will be expired for sure
       await sleep(2500);
       await truffleAssert.reverts(campaignContract.donate([60, 10, 30], {
         from: donor,
@@ -213,28 +229,27 @@ contract('Campaign', accounts => {
         value: 5000000000000
       });
 
+      // let's make the campaign expire
       await sleep(2500);
 
+      // to check that the beneficiary withdraws from the campaign, I first check the current balance
       const contractBalanceBefore = await web3.eth.getBalance(campaignContract.address);
+
       await campaignContract.withdraw({
         from: beneficiaries[0]
       });
+      //now let's check the contract balance after the beneficiary withdraws
       const contractBalanceAfter = await web3.eth.getBalance(campaignContract.address);
       const expected = Math.round(parseFloat(contractBalanceAfter) + parseFloat(totalQuota) / 2 + 3000000000000);
       assert.equal(expected, contractBalanceBefore, "withdraw is not as expected")
 
-      //try to withdraw again
+      //try to withdraw twice to assert that the campaign throws an exception
       await truffleAssert.reverts(campaignContract.withdraw({
         from: beneficiaries[0]
       }), "Error. No amount available or beneficiary non-existing");
     });
 
     it('should refuse withdraw if campaign is not CONCLUDED', async () => {
-      nearTimestamp = Math.round(Date.now() / 1000) + 3;
-      campaignContract = await Campaign.new(organizers, beneficiaries, nearTimestamp, {
-        from: accounts[0]
-      });
-
       const organizerQuota = 500000000;
       organizers.forEach(async organizer => {
         await campaignContract.initialize([10, 40, 50], {
